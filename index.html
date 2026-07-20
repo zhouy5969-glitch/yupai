@@ -357,26 +357,25 @@
     $('qInput').focus();
   });
 
-  /* ---------- 今日三则新闻：浏览器直接请求，通过免费跨域代理中转（Netlify服务器请求被目标接口屏蔽，改回手机端请求） ---------- */
+  /* ---------- 今日三则新闻：改用谷歌新闻官方RSS（通过rss2json转成JSON），比第三方热榜接口更稳定 ---------- */
   let lastNewsItems = [];
-  const NEWS_SOURCES = [
-    {label:'百度热点', url:'https://api.vvhan.com/api/hotlist/baiduHot'},
-    {label:'知乎热榜', url:'https://api.vvhan.com/api/hotlist/zhihuHot'},
-    {label:'今日头条', url:'https://api.vvhan.com/api/hotlist/toutiaoHot'}
-  ];
-  const PROXY_PREFIX = 'https://api.allorigins.win/raw?url=';
-  async function fetchOneSource(src){
-    const res = await fetch(PROXY_PREFIX + encodeURIComponent(src.url));
+  const RSS_URL = 'https://news.google.com/rss?hl=zh-CN&gl=CN&ceid=CN:zh-Hans';
+  const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
+  async function fetchNewsFromRSS(){
+    const res = await fetch(RSS2JSON + encodeURIComponent(RSS_URL));
     if(!res.ok) throw new Error('http '+res.status);
     const json = await res.json();
-    const arr = json.data || json.result || [];
-    if(!arr.length) throw new Error('empty');
-    const first = arr[0];
-    return {
-      source: src.label,
-      title: first.title || first.name || '（无标题）',
-      url: first.url || first.link || first.mobilUrl || '#'
-    };
+    const list = json.items || [];
+    if(!list.length) throw new Error('empty');
+    return list.slice(0,3).map(it=>{
+      // Google新闻标题常以" - 来源"结尾，尝试拆出来源名
+      const m = (it.title||'').match(/^(.*)\s-\s([^-]+)$/);
+      return {
+        source: m ? m[2].trim() : 'Google 新闻',
+        title: m ? m[1].trim() : (it.title||'（无标题）'),
+        url: it.link || '#'
+      };
+    });
   }
   function renderNews(items){
     lastNewsItems = items;
@@ -422,8 +421,7 @@
     const cached = store.get('news-cache:'+tk);
     if(cached && cached.length){ renderNews(cached); $('newsStatus').textContent='今日已抓取'; return; }
     try{
-      const results = await Promise.all(NEWS_SOURCES.map(s=>fetchOneSource(s).catch(()=>null)));
-      const ok = results.filter(Boolean);
+      const ok = await fetchNewsFromRSS();
       if(ok.length===0) throw new Error('all failed');
       store.set('news-cache:'+tk, ok);
       renderNews(ok);
