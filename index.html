@@ -1,1 +1,493 @@
-{"error_code":31142,"error_msg":"thumbnail processing,please wait"}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>独立思考台账 · 三十日判词</title>
+
+<!-- PWA：让浏览器识别这是一个可安装的应用 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2b2620">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+<!-- iOS Safari 专用：iOS不认manifest里的图标，必须靠这几行才能"添加到主屏幕"时显示图标、全屏运行 -->
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="独立思考台账">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#e8e3d3; --paper-deep:#ded7c1; --card:#f2eddf;
+    --ink:#2b2620; --ink-soft:#5c5647;
+    --seal:#b7312c; --jade:#3a5a5c; --rule:#c9c2ac; --gold:#a6813a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(ellipse at top left,#f0ead9 0%,transparent 55%),var(--paper);
+    color:var(--ink);font-family:'Noto Sans SC',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:660px;margin:0 auto;padding:26px 20px 90px;}
+
+  header{position:relative;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--rule);}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--jade);text-transform:uppercase;margin-bottom:6px;}
+  h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:28px;margin:0 0 6px;}
+  .sub{color:var(--ink-soft);font-size:13px;line-height:1.6;}
+  .daycounter{position:absolute;top:0;right:0;text-align:right;font-family:'JetBrains Mono',monospace;}
+  .daycounter .n{font-size:24px;font-weight:700;color:var(--seal);}
+  .daycounter .l{font-size:10px;color:var(--ink-soft);letter-spacing:.1em;}
+  .grid30{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin:16px 0 0;}
+  .cell{aspect-ratio:1;border-radius:3px;background:var(--paper-deep);border:1px solid var(--rule);}
+  .cell.done{background:var(--seal);border-color:var(--seal);}
+  .cell.today{outline:1.5px solid var(--jade);outline-offset:1px;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .tab{flex:1;text-align:center;padding:9px 4px;font-size:13px;font-weight:500;border:1px solid var(--rule);
+    border-radius:2px;cursor:pointer;color:var(--ink-soft);background:transparent;font-family:'Noto Sans SC',sans-serif;}
+  .tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{background:var(--card);border:1px solid var(--rule);border-radius:2px;padding:18px 18px 20px;margin-bottom:18px;position:relative;}
+  .card::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;background:var(--gold);}
+  .card-title{font-family:'Noto Serif SC',serif;font-weight:700;font-size:14.5px;margin-bottom:10px;color:var(--ink);}
+  .card-title .tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;color:var(--ink-soft);margin-left:6px;}
+
+  /* 新闻 */
+  .news-item{border-bottom:1px dashed var(--rule);padding-bottom:12px;margin-bottom:12px;}
+  .news-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .news-src{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.06em;}
+  .news-title{font-weight:700;font-size:14.5px;margin:4px 0 8px;line-height:1.5;}
+  .news-title a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule);}
+  .news-opinion{width:100%;font-size:13.5px;line-height:1.6;border:none;border-bottom:1px dashed var(--rule);
+    background:transparent;padding:5px 2px 8px;resize:vertical;outline:none;font-family:'Noto Sans SC',sans-serif;}
+  .news-opinion:focus{border-bottom-color:var(--jade);}
+  .news-fallback{font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .news-fallback input{width:100%;margin-bottom:6px;padding:6px 2px;border:none;border-bottom:1px solid var(--rule);
+    background:transparent;font-size:13px;outline:none;}
+  .news-status{font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;margin-top:4px;}
+
+  /* 推荐问题 */
+  .suggest-box{display:flex;align-items:flex-start;gap:10px;background:var(--paper-deep);border-radius:2px;padding:10px 12px;margin-bottom:10px;}
+  .suggest-box .txt{flex:1;font-size:13.5px;line-height:1.55;color:var(--ink);}
+  .suggest-box .cat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--jade);display:block;margin-bottom:3px;}
+  .suggest-actions{display:flex;gap:8px;}
+  .mini-btn{font-size:12px;padding:6px 10px;border:1px solid var(--rule);background:transparent;color:var(--ink-soft);border-radius:2px;cursor:pointer;white-space:nowrap;}
+  .mini-btn:hover{border-color:var(--jade);color:var(--jade);}
+
+  label{display:block;font-family:'Noto Serif SC',serif;font-weight:700;font-size:14.5px;margin-bottom:8px;color:var(--ink);}
+  label .tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:400;color:var(--ink-soft);margin-left:6px;}
+  textarea,input[type=text]{width:100%;font-family:'Noto Sans SC',sans-serif;font-size:14.5px;line-height:1.7;color:var(--ink);
+    background:transparent;border:none;border-bottom:1px dashed var(--rule);padding:6px 2px 10px;resize:vertical;outline:none;}
+  textarea:focus,input[type=text]:focus{border-bottom-color:var(--jade);}
+  input[type=text]{border-bottom:1px solid var(--rule);}
+  .qrow{margin-bottom:16px;}
+  .qrow:last-child{margin-bottom:0;}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .split .qrow.support label{color:var(--jade);}
+  .split .qrow.oppose label{color:var(--seal);}
+  @media (max-width:480px){.split{grid-template-columns:1fr;}}
+  .verdict textarea{min-height:60px;}
+
+  .actions{display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;}
+  button.primary{font-family:'Noto Sans SC',sans-serif;font-weight:500;font-size:13.5px;padding:10px 18px;border-radius:2px;
+    border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;}
+  button.ghost{font-family:'Noto Sans SC',sans-serif;font-weight:500;font-size:13.5px;padding:10px 18px;border-radius:2px;
+    background:transparent;color:var(--ink-soft);border:1px solid var(--rule);cursor:pointer;}
+  button:active{transform:translateY(1px);}
+  .status{font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+
+  .seal-mark{position:absolute;top:14px;right:14px;width:48px;height:48px;border:2.5px solid var(--seal);border-radius:6px;
+    color:var(--seal);display:none;align-items:center;justify-content:center;font-family:'Noto Serif SC',serif;font-weight:900;
+    font-size:18px;transform:rotate(-8deg);opacity:.85;}
+  .seal-mark.show{display:flex;}
+
+  .history-title{font-family:'Noto Serif SC',serif;font-weight:700;font-size:15px;margin:6px 0 12px;color:var(--ink-soft);}
+  .entry{border-bottom:1px solid var(--rule);padding:14px 2px;}
+  .entry .date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:4px;}
+  .entry .q{font-weight:700;font-size:14px;margin-bottom:6px;}
+  .entry .v{font-size:13px;color:var(--ink-soft);line-height:1.6;}
+  .empty{color:var(--ink-soft);font-size:13px;padding:20px 2px;text-align:center;}
+
+  /* 每周回顾 */
+  .week-range{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--jade);margin-bottom:14px;}
+  .day-summary{border-bottom:1px dashed var(--rule);padding:10px 0;font-size:13px;}
+  .day-summary .d{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);}
+  .day-summary .q{font-weight:700;margin:3px 0;}
+  .day-summary .v{color:var(--ink-soft);}
+  .day-summary.blank{color:var(--ink-soft);font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">三十日独立思考训练</div>
+    <h1>独立思考台账</h1>
+    <div class="sub">每天读新闻、立问题、站两方、落判断；每周回头看判断怎么变了。</div>
+    <div class="daycounter"><div class="n" id="dayNum">—</div><div class="l">DAY / 30</div></div>
+    <div class="grid30" id="grid30"></div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-view="daily">今日</div>
+    <div class="tab" data-view="weekly">本周回顾</div>
+  </div>
+
+  <!-- ===== 今日 ===== -->
+  <div class="view active" id="view-daily">
+
+    <div class="card" id="newsCard">
+      <div class="card-title">今日三则时事 <span class="tag">读完写一句你的看法</span></div>
+      <div id="newsBody"><div class="empty">正在抓取…</div></div>
+      <div class="news-status" id="newsStatus"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">推荐问题 <span class="tag">想不出问题时用这个</span></div>
+      <div class="suggest-box">
+        <div class="txt"><span class="cat" id="suggestCat">—</span><span id="suggestText">加载中…</span></div>
+      </div>
+      <div class="suggest-actions">
+        <button class="mini-btn" id="useSuggestBtn">用这个问题</button>
+        <button class="mini-btn" id="shuffleBtn">换一个</button>
+        <button class="mini-btn" id="fromNewsBtn">从今日新闻出题</button>
+      </div>
+    </div>
+
+    <div class="card" id="entryCard">
+      <div class="seal-mark" id="sealMark">判</div>
+      <div class="qrow">
+        <label>今日问题</label>
+        <input type="text" id="qInput" placeholder="例如：为什么我认为努力一定有用？">
+      </div>
+      <div class="qrow">
+        <label>我的观点</label>
+        <textarea id="viewInput" rows="2" placeholder="第一反应，不用修饰。"></textarea>
+      </div>
+      <div class="split">
+        <div class="qrow support">
+          <label>支持理由</label>
+          <textarea id="supportInput" rows="3" placeholder="站在自己这边，说服自己。"></textarea>
+        </div>
+        <div class="qrow oppose">
+          <label>反对理由</label>
+          <textarea id="opposeInput" rows="3" placeholder="逼自己写出反方，哪怕别扭。"></textarea>
+        </div>
+      </div>
+      <div class="qrow verdict">
+        <label>最后的判断</label>
+        <textarea id="verdictInput" rows="2" placeholder="看完两边之后，你现在怎么想？"></textarea>
+      </div>
+      <div class="actions">
+        <button class="primary" id="saveBtn">落判 · 保存今日</button>
+        <button class="ghost" id="clearBtn">清空重写</button>
+        <span class="status" id="statusText"></span>
+      </div>
+    </div>
+
+    <div class="history-title">往日判词</div>
+    <div id="historyList"><div class="empty">加载中…</div></div>
+  </div>
+
+  <!-- ===== 每周回顾 ===== -->
+  <div class="view" id="view-weekly">
+    <div class="card">
+      <div class="card-title">本周记录</div>
+      <div class="week-range" id="weekRange">—</div>
+      <div id="weekDays"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">回顾三问</div>
+      <div class="qrow">
+        <label>哪个判断这周发生了反转？</label>
+        <textarea id="w1" rows="2"></textarea>
+      </div>
+      <div class="qrow">
+        <label>哪个反方观点最有力，让你意外？</label>
+        <textarea id="w2" rows="2"></textarea>
+      </div>
+      <div class="qrow">
+        <label>下周想练习哪个角度？</label>
+        <textarea id="w3" rows="2"></textarea>
+      </div>
+      <div class="actions">
+        <button class="primary" id="saveWeekBtn">保存本周回顾</button>
+        <span class="status" id="weekStatus"></span>
+      </div>
+    </div>
+    <div class="history-title">往期回顾</div>
+    <div id="weekHistory"><div class="empty">还没有往期回顾。</div></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  /* ---------- 本地存储（部署到自己网站后长期有效，浏览器级别） ---------- */
+  const store = {
+    get(key){ try{ const v = localStorage.getItem(key); return v===null?null:JSON.parse(v);}catch(e){return null;} },
+    set(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); return true;}catch(e){return false;} },
+    keys(prefix){ const out=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf(prefix)===0) out.push(k);} return out; }
+  };
+
+  const todayKey = (offsetDays=0) => {
+    const d = new Date(); d.setDate(d.getDate()+offsetDays);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  };
+  const fmtDate = k => { const [y,m,d]=k.split('-'); return `${y}.${m}.${d}`; };
+  const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  /* ---------- 标签切换 ---------- */
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      tab.classList.add('active');
+      $('view-'+tab.dataset.view).classList.add('active');
+      if(tab.dataset.view==='weekly') renderWeekly();
+    });
+  });
+
+  /* ---------- 30 天进度 ---------- */
+  function ensureStartDate(){
+    let sd = store.get('meta:start-date');
+    if(!sd){ sd = todayKey(); store.set('meta:start-date', sd); }
+    return sd;
+  }
+  function dayIndexFromStart(startKey, dateKey){
+    const a = new Date(startKey+'T00:00:00'), b = new Date(dateKey+'T00:00:00');
+    return Math.floor((b-a)/86400000)+1;
+  }
+  function loadAllEntries(){
+    return store.keys('entries:').map(k=>store.get(k)).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date));
+  }
+  function refreshGridAndHistory(){
+    const startDate = ensureStartDate();
+    const tk = todayKey();
+    const todayIdx = dayIndexFromStart(startDate, tk);
+    $('dayNum').textContent = Math.min(Math.max(todayIdx,1),30);
+    const items = loadAllEntries();
+    const doneSet = new Set(items.map(it=>dayIndexFromStart(startDate,it.date)).filter(i=>i>=1&&i<=30));
+    const grid = $('grid30'); grid.innerHTML='';
+    for(let i=1;i<=30;i++){
+      const c=document.createElement('div'); c.className='cell'+(doneSet.has(i)?' done':'')+(i===todayIdx?' today':'');
+      grid.appendChild(c);
+    }
+    const rest = items.filter(it=>it.date!==tk);
+    $('historyList').innerHTML = rest.length===0
+      ? '<div class="empty">还没有往日记录，写完今天的第一条就会出现在这里。</div>'
+      : rest.map(it=>`<div class="entry"><div class="date">${fmtDate(it.date)}</div><div class="q">${escapeHtml(it.question||'（未命名问题）')}</div><div class="v">${escapeHtml((it.verdict||'').slice(0,80))}${(it.verdict||'').length>80?'…':''}</div></div>`).join('');
+  }
+
+  /* ---------- 今日条目 ---------- */
+  const fields = ['qInput','viewInput','supportInput','opposeInput','verdictInput'];
+  function loadTodayIntoForm(){
+    const data = store.get('entries:'+todayKey());
+    if(data){
+      $('qInput').value=data.question||''; $('viewInput').value=data.view||'';
+      $('supportInput').value=data.support||''; $('opposeInput').value=data.oppose||'';
+      $('verdictInput').value=data.verdict||'';
+      $('sealMark').classList.add('show'); $('statusText').textContent='今日已落判';
+    }
+  }
+  function saveToday(){
+    const tk = todayKey();
+    const data = {date:tk, question:$('qInput').value.trim(), view:$('viewInput').value.trim(),
+      support:$('supportInput').value.trim(), oppose:$('opposeInput').value.trim(), verdict:$('verdictInput').value.trim(),
+      savedAt:new Date().toISOString()};
+    if(!data.question && !data.view && !data.verdict){ $('statusText').textContent='至少写一点什么再保存'; return; }
+    if(store.set('entries:'+tk, data)){
+      $('sealMark').classList.add('show');
+      $('statusText').textContent='已保存 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+      refreshGridAndHistory();
+    } else { $('statusText').textContent='保存失败，可能是浏览器隐私模式限制了本地存储'; }
+  }
+  function clearForm(){ fields.forEach(f=>$(f).value=''); $('sealMark').classList.remove('show'); $('statusText').textContent=''; }
+  $('saveBtn').addEventListener('click', saveToday);
+  $('clearBtn').addEventListener('click', clearForm);
+
+  /* ---------- 推荐问题库 ---------- */
+  const QUESTIONS = [
+    {cat:'自我认知', text:'我害怕失败的原因是什么？是怕结果，还是怕别人怎么看？'},
+    {cat:'自我认知', text:'我最近一次改变主意，是因为想通了，还是因为懒得再争？'},
+    {cat:'自我认知', text:'如果没人会知道，我还会坚持现在的选择吗？'},
+    {cat:'创作与表达', text:'我写的角色和我本人，在哪个观点上最不一样？'},
+    {cat:'创作与表达', text:'读者骂一个角色时，我真的认同他们吗，还是只是想讨好读者？'},
+    {cat:'创作与表达', text:'我为什么喜欢某一类CP/题材？这偏好背后是什么需求？'},
+    {cat:'价值判断', text:'我认为"努力一定有用"，这句话在什么情况下会失效？'},
+    {cat:'价值判断', text:'公平和效率冲突时，我下意识站哪边？为什么？'},
+    {cat:'价值判断', text:'我评价一件事"好"或"坏"，标准是我自己定的，还是借来的？'},
+    {cat:'关系', text:'我喜欢某个人，是喜欢他本人，还是喜欢他让我感觉到的自己？'},
+    {cat:'关系', text:'我最近一次和人争执，赢了道理还是伤了关系？我更在乎哪个？'},
+    {cat:'社会议题', text:'一件事引发全网骂战时，我的第一反应是站队，还是先问细节？'},
+    {cat:'社会议题', text:'我支持的立场，如果换成对立阵营说出同样的话，我还会认同吗？'},
+    {cat:'思维方式', text:'我最近一次说"这不用讨论，明摆着的"，那件事真的没有反方吗？'},
+    {cat:'思维方式', text:'我上次改变判断，是被更好的证据说服，还是被情绪说服？'}
+  ];
+  function seedFromDate(dateKey){ return Array.from(dateKey).reduce((s,c)=>s+c.charCodeAt(0),0); }
+  let currentSuggestIdx = seedFromDate(todayKey()) % QUESTIONS.length;
+  function renderSuggest(){
+    const q = QUESTIONS[currentSuggestIdx];
+    $('suggestCat').textContent = q.cat;
+    $('suggestText').textContent = q.text;
+  }
+  $('useSuggestBtn').addEventListener('click', ()=>{ $('qInput').value = QUESTIONS[currentSuggestIdx].text; $('qInput').focus(); });
+  $('shuffleBtn').addEventListener('click', ()=>{
+    let next; do{ next = Math.floor(Math.random()*QUESTIONS.length); } while(next===currentSuggestIdx && QUESTIONS.length>1);
+    currentSuggestIdx = next; renderSuggest();
+  });
+  renderSuggest();
+
+  /* ---------- 从新闻出题（模板生成，不依赖外部AI服务） ---------- */
+  const NEWS_TEMPLATES = [
+    t => `关于"${t}"，如果我是当事人，第一反应会是什么？为什么？`,
+    t => `"${t}"这件事里，反对声音最有道理的一条是什么？`,
+    t => `十年后回头看"${t}"，我现在的判断大概率会显得幼稚吗？`,
+    t => `"${t}"引发的讨论里，我站的立场，多少是因为道理，多少是因为立场先入为主？`,
+    t => `如果"${t}"发生在我认识的人身上，我的态度会不会不一样？`
+  ];
+  $('fromNewsBtn').addEventListener('click', ()=>{
+    if(!lastNewsItems || lastNewsItems.length===0){ $('newsStatus').textContent='还没有抓到新闻，稍后再试或手动填写'; return; }
+    const item = lastNewsItems[Math.floor(Math.random()*lastNewsItems.length)];
+    const tpl = NEWS_TEMPLATES[Math.floor(Math.random()*NEWS_TEMPLATES.length)];
+    $('qInput').value = tpl(item.title);
+    $('qInput').focus();
+  });
+
+  /* ---------- 今日三则新闻：浏览器直接请求，通过免费跨域代理中转（Netlify服务器请求被目标接口屏蔽，改回手机端请求） ---------- */
+  let lastNewsItems = [];
+  const NEWS_SOURCES = [
+    {label:'百度热点', url:'https://api.vvhan.com/api/hotlist/baiduHot'},
+    {label:'知乎热榜', url:'https://api.vvhan.com/api/hotlist/zhihuHot'},
+    {label:'今日头条', url:'https://api.vvhan.com/api/hotlist/toutiaoHot'}
+  ];
+  const PROXY_PREFIX = 'https://api.allorigins.win/raw?url=';
+  async function fetchOneSource(src){
+    const res = await fetch(PROXY_PREFIX + encodeURIComponent(src.url));
+    if(!res.ok) throw new Error('http '+res.status);
+    const json = await res.json();
+    const arr = json.data || json.result || [];
+    if(!arr.length) throw new Error('empty');
+    const first = arr[0];
+    return {
+      source: src.label,
+      title: first.title || first.name || '（无标题）',
+      url: first.url || first.link || first.mobilUrl || '#'
+    };
+  }
+  function renderNews(items){
+    lastNewsItems = items;
+    const tk = todayKey();
+    $('newsBody').innerHTML = items.map((it,i)=>{
+      const saved = store.get(`news-opinion:${tk}:${i}`) || '';
+      return `
+        <div class="news-item">
+          <div class="news-src">${escapeHtml(it.source)}</div>
+          <div class="news-title"><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a></div>
+          <textarea class="news-opinion" data-idx="${i}" rows="2" placeholder="读完写一句你的看法…">${escapeHtml(saved)}</textarea>
+        </div>`;
+    }).join('');
+    document.querySelectorAll('.news-opinion').forEach(ta=>{
+      ta.addEventListener('blur', ()=>{
+        store.set(`news-opinion:${tk}:${ta.dataset.idx}`, ta.value.trim());
+      });
+    });
+  }
+  function renderNewsFallback(){
+    const tk = todayKey();
+    const saved = store.get('news-manual:'+tk) || [{},{},{}];
+    $('newsBody').innerHTML = `
+      <div class="news-fallback">自动抓取暂时不可用（可能是网络或跨域限制），可以手动填今天想讨论的三条新闻：</div>
+      ${[0,1,2].map(i=>`
+        <div class="news-item">
+          <input type="text" class="manual-title" data-idx="${i}" placeholder="新闻标题 ${i+1}" value="${escapeHtml(saved[i]&&saved[i].title||'')}">
+          <textarea class="news-opinion" data-idx="${i}" rows="2" placeholder="你的看法…">${escapeHtml(saved[i]&&saved[i].opinion||'')}</textarea>
+        </div>`).join('')}
+    `;
+    const save = ()=>{
+      const arr = [0,1,2].map(i=>({
+        title: document.querySelector(`.manual-title[data-idx="${i}"]`).value.trim(),
+        opinion: document.querySelector(`.news-opinion[data-idx="${i}"]`).value.trim()
+      }));
+      store.set('news-manual:'+tk, arr);
+      lastNewsItems = arr.filter(a=>a.title).map(a=>({title:a.title}));
+    };
+    document.querySelectorAll('.manual-title, .news-item .news-opinion').forEach(el=>el.addEventListener('blur', save));
+  }
+  async function loadNews(){
+    const tk = todayKey();
+    const cached = store.get('news-cache:'+tk);
+    if(cached && cached.length){ renderNews(cached); $('newsStatus').textContent='今日已抓取'; return; }
+    try{
+      const results = await Promise.all(NEWS_SOURCES.map(s=>fetchOneSource(s).catch(()=>null)));
+      const ok = results.filter(Boolean);
+      if(ok.length===0) throw new Error('all failed');
+      store.set('news-cache:'+tk, ok);
+      renderNews(ok);
+      $('newsStatus').textContent='已抓取 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    }catch(e){
+      renderNewsFallback();
+      $('newsStatus').textContent='';
+    }
+  }
+  loadNews();
+
+  /* ---------- 每周回顾 ---------- */
+  function weekStartKey(dateKey){
+    const d = new Date(dateKey+'T00:00:00');
+    const day = d.getDay(); // 0=周日
+    const diffToMonday = (day===0?-6:1-day);
+    d.setDate(d.getDate()+diffToMonday);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function renderWeekly(){
+    const tk = todayKey();
+    const wk = weekStartKey(tk);
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(wk+'T00:00:00'); d.setDate(d.getDate()+i);
+      const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      days.push(key);
+    }
+    $('weekRange').textContent = fmtDate(days[0])+' — '+fmtDate(days[6]);
+    $('weekDays').innerHTML = days.map(key=>{
+      const it = store.get('entries:'+key);
+      if(!it) return `<div class="day-summary blank"><span class="d">${fmtDate(key)}</span> · 这天没有记录</div>`;
+      return `<div class="day-summary"><span class="d">${fmtDate(key)}</span><div class="q">${escapeHtml(it.question||'（未命名问题）')}</div><div class="v">${escapeHtml(it.verdict||'')}</div></div>`;
+    }).join('');
+
+    const saved = store.get('weekly:'+wk);
+    $('w1').value = saved?saved.w1:''; $('w2').value = saved?saved.w2:''; $('w3').value = saved?saved.w3:'';
+    $('weekStatus').textContent = saved ? '本周已保存回顾' : '';
+
+    const allWeeks = store.keys('weekly:').map(k=>({key:k.replace('weekly:',''), val:store.get(k)})).sort((a,b)=>b.key.localeCompare(a.key));
+    const rest = allWeeks.filter(w=>w.key!==wk);
+    $('weekHistory').innerHTML = rest.length===0 ? '<div class="empty">还没有往期回顾。</div>'
+      : rest.map(w=>`<div class="entry"><div class="date">${fmtDate(w.key)} 那一周</div><div class="v">${escapeHtml(w.val.w1||'')}</div></div>`).join('');
+
+    $('saveWeekBtn').onclick = ()=>{
+      store.set('weekly:'+wk, {w1:$('w1').value.trim(), w2:$('w2').value.trim(), w3:$('w3').value.trim(), savedAt:new Date().toISOString()});
+      $('weekStatus').textContent = '已保存 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+      renderWeekly();
+    };
+  }
+
+  /* ---------- 初始化 ---------- */
+  refreshGridAndHistory();
+  loadTodayIntoForm();
+})();
+</script>
+
+<script>
+  // 注册 service worker：安装后即使没有网络，也能打开应用本身（新闻抓取仍需要联网）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('sw注册失败', err));
+    });
+  }
+</script>
+</body>
+</html>
